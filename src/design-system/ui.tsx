@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, CSSProperties } from 'react'
 
 export type BadgeVariant = 'neutral' | 'warning' | 'success'
 
@@ -17,12 +17,14 @@ export function Button({
     disabled,
     onClick,
     type = 'button',
+    style,
 }: {
     children: ReactNode
     variant?: 'primary' | 'secondary'
     disabled?: boolean
     onClick?: () => void
     type?: 'button' | 'submit'
+    style?: CSSProperties
 }) {
     return (
         <button
@@ -30,6 +32,7 @@ export function Button({
             className={`ds-button ds-button--${variant}`}
             disabled={disabled}
             onClick={onClick}
+            style={style}
         >
             {children}
         </button>

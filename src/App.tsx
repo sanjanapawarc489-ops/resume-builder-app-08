@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
-import { TopNav, ContextHeader, ProofFooter, type ProofState, type ProofKey } from './design-system/layout'
+import { TopNav, ProofFooter, type ProofState, type ProofKey } from './design-system/layout'
 import { Button, Card, Field, TextArea, TextInput } from './design-system/ui'
 
 // --- Types ---
@@ -45,6 +45,8 @@ interface ResumeData {
     }
 }
 
+type TemplateType = 'Classic' | 'Modern' | 'Minimal'
+
 const DEFAULT_DATA: ResumeData = {
     personal: { name: '', email: '', phone: '', location: '' },
     summary: '',
@@ -79,6 +81,147 @@ const SAMPLE_DATA: ResumeData = {
     }
 }
 
+// --- Utils ---
+
+function getBulletWarnings(desc: string): string[] {
+    if (!desc.trim()) return []
+    const lines = desc.split('\n').filter(l => l.trim().length > 0)
+    const warnings = new Set<string>()
+    const verbRegex = /^(?:[-•*]\s*)?(Built|Developed|Designed|Implemented|Led|Improved|Created|Optimized|Automated)\b/i
+    const numRegex = /\d+%?|%|k\b/i
+
+    lines.forEach(line => {
+        if (!verbRegex.test(line.trim())) {
+            warnings.add("Start with a strong action verb (e.g., Built, Developed, Designed, Implemented, Led, Improved, Created, Optimized, Automated).")
+        }
+        if (!numRegex.test(line.trim())) {
+            warnings.add("Add measurable impact (numbers).")
+        }
+    })
+    return Array.from(warnings)
+}
+
+// --- Components ---
+
+function ResumeDocument({ data, template, scale = 1 }: { data: ResumeData; template: TemplateType; scale?: number }) {
+    let containerStyle: React.CSSProperties = {
+        background: 'white', color: 'black', padding: `${40 * scale}px`, minHeight: `${600 * scale}px`,
+        boxShadow: scale === 1 ? '0 0 20px rgba(0,0,0,0.05)' : 'none',
+        border: scale === 1 ? 'none' : '1px solid #ddd',
+        wordWrap: 'break-word'
+    }
+
+    let headerStyle: React.CSSProperties = {}
+    let sectionTitleStyle: React.CSSProperties = {}
+    let bodyStyle: React.CSSProperties = {}
+
+    if (template === 'Classic') {
+        containerStyle = { ...containerStyle, fontFamily: 'var(--font-serif)', fontSize: `${12 * scale}px` }
+        headerStyle = { textAlign: 'center', marginBottom: `${24 * scale}px` }
+        sectionTitleStyle = { borderBottom: '1px solid black', textTransform: 'uppercase', fontSize: `${14 * scale}px`, letterSpacing: '1px', marginBottom: `${12 * scale}px` }
+        bodyStyle = { lineHeight: '1.6' }
+    } else if (template === 'Modern') {
+        containerStyle = { ...containerStyle, fontFamily: 'var(--font-sans)', fontSize: `${13 * scale}px`, color: '#333' }
+        headerStyle = { textAlign: 'left', marginBottom: `${32 * scale}px`, borderBottom: '2px solid #222', paddingBottom: `${16 * scale}px` }
+        sectionTitleStyle = { color: 'var(--color-accent)', fontWeight: 'bold', textTransform: 'uppercase', fontSize: `${12 * scale}px`, letterSpacing: '2px', marginBottom: `${12 * scale}px` }
+        bodyStyle = { lineHeight: '1.5' }
+    } else if (template === 'Minimal') {
+        containerStyle = { ...containerStyle, fontFamily: 'ui-monospace, monospace', fontSize: `${11 * scale}px`, color: '#111' }
+        headerStyle = { textAlign: 'left', marginBottom: `${24 * scale}px` }
+        sectionTitleStyle = { borderTop: '1px solid #000', borderBottom: '1px solid #000', padding: `${4 * scale}px 0`, textTransform: 'uppercase', fontSize: `${11 * scale}px`, marginBottom: `${12 * scale}px`, letterSpacing: '1px' }
+        bodyStyle = { lineHeight: '1.4' }
+    }
+
+    return (
+        <div style={containerStyle}>
+            <div style={headerStyle}>
+                <h1 style={{ margin: `0 0 ${8 * scale}px`, fontSize: `${(template === 'Modern' ? 36 : 30) * scale}px`, letterSpacing: template === 'Modern' ? '-1px' : '1px', fontWeight: template === 'Modern' ? 'bold' : 'normal', textTransform: template === 'Classic' ? 'uppercase' : 'none' }}>
+                    {data.personal.name || 'Your Name'}
+                </h1>
+                <div style={{ fontSize: `${(template === 'Minimal' ? 10 : 13) * scale}px`, opacity: 0.8 }}>
+                    {data.personal.email} {data.personal.email && data.personal.phone ? '•' : ''} {data.personal.phone} {data.personal.phone && data.personal.location ? '•' : ''} {data.personal.location}
+                </div>
+                <div style={{ fontSize: `${(template === 'Minimal' ? 10 : 13) * scale}px`, marginTop: `${4 * scale}px`, opacity: 0.8 }}>
+                    {data.links.github} {data.links.github && data.links.linkedin ? '|' : ''} {data.links.linkedin}
+                </div>
+            </div>
+
+            {data.summary && (
+                <section style={{ marginBottom: `${24 * scale}px` }}>
+                    <h2 style={sectionTitleStyle}>Summary</h2>
+                    <p style={{ ...bodyStyle, whiteSpace: 'pre-wrap', margin: 0 }}>{data.summary}</p>
+                </section>
+            )}
+
+            {data.experience.length > 0 && (
+                <section style={{ marginBottom: `${24 * scale}px` }}>
+                    <h2 style={sectionTitleStyle}>Experience</h2>
+                    {data.experience.map(exp => (
+                        <div key={exp.id} style={{ marginBottom: `${16 * scale}px` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                <span>{exp.company}</span>
+                                <span>{exp.duration}</span>
+                            </div>
+                            <div style={{ fontStyle: template === 'Modern' ? 'normal' : 'italic', color: template === 'Modern' ? '#666' : 'inherit' }}>{exp.role}</div>
+                            <p style={{ ...bodyStyle, margin: `${4 * scale}px 0 0`, whiteSpace: 'pre-wrap' }}>{exp.desc}</p>
+                        </div>
+                    ))}
+                </section>
+            )}
+
+            {data.projects.length > 0 && (
+                <section style={{ marginBottom: `${24 * scale}px` }}>
+                    <h2 style={sectionTitleStyle}>Projects</h2>
+                    {data.projects.map(proj => (
+                        <div key={proj.id} style={{ marginBottom: `${16 * scale}px` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                <span>{proj.name}</span>
+                                <span>{proj.link}</span>
+                            </div>
+                            <p style={{ ...bodyStyle, margin: `${4 * scale}px 0 0`, whiteSpace: 'pre-wrap' }}>{proj.desc}</p>
+                        </div>
+                    ))}
+                </section>
+            )}
+
+            {data.education.length > 0 && (
+                <section style={{ marginBottom: `${24 * scale}px` }}>
+                    <h2 style={sectionTitleStyle}>Education</h2>
+                    {data.education.map(edu => (
+                        <div key={edu.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: `${6 * scale}px` }}>
+                            <span><strong style={{ fontWeight: 'bold' }}>{edu.school}</strong>{edu.degree ? ` — ${edu.degree}` : ''}</span>
+                            <span>{edu.year}</span>
+                        </div>
+                    ))}
+                </section>
+            )}
+
+            {data.skills && (
+                <section>
+                    <h2 style={sectionTitleStyle}>Skills</h2>
+                    <p style={{ ...bodyStyle, whiteSpace: 'pre-wrap', margin: 0 }}>{data.skills}</p>
+                </section>
+            )}
+        </div>
+    )
+}
+
+function TemplateSelector({ template, setTemplate }: { template: TemplateType; setTemplate: (t: TemplateType) => void }) {
+    const templates: TemplateType[] = ['Classic', 'Modern', 'Minimal']
+    return (
+        <Card title="Template Selection">
+            <div className="ds-buttonRow">
+                {templates.map(t => (
+                    <Button key={t} variant={template === t ? 'primary' : 'secondary'} onClick={() => setTemplate(t)} style={{ flex: 1 }}>
+                        {t}
+                    </Button>
+                ))}
+            </div>
+            <p className="ds-panelHint" style={{ marginTop: 'var(--space-1)', fontSize: '12px' }}>Changes layout styling only.</p>
+        </Card>
+    )
+}
+
 // --- Pages ---
 
 function Home() {
@@ -96,12 +239,78 @@ function Home() {
     )
 }
 
-function Builder({ data, update }: { data: ResumeData; update: (d: ResumeData) => void }) {
+function Builder({ data, update, template, setTemplate }: { data: ResumeData; update: (d: ResumeData) => void; template: TemplateType; setTemplate: (t: TemplateType) => void }) {
     const addEdu = () => update({ ...data, education: [...data.education, { id: Date.now().toString(), school: '', degree: '', year: '' }] })
     const addExp = () => update({ ...data, experience: [...data.experience, { id: Date.now().toString(), company: '', role: '', duration: '', desc: '' }] })
     const addProj = () => update({ ...data, projects: [...data.projects, { id: Date.now().toString(), name: '', desc: '', link: '' }] })
 
     const loadSample = () => update(SAMPLE_DATA)
+
+    // Compute ATS Score
+    let score = 20 // Base score
+    const suggestions: string[] = []
+
+    const summaryWords = data.summary.trim().split(/\s+/).filter(Boolean).length
+    if (summaryWords >= 40 && summaryWords <= 120) {
+        score += 15
+    } else {
+        suggestions.push("Write a stronger summary (40–120 words).")
+    }
+
+    if (data.projects.length >= 2) {
+        score += 10
+    } else {
+        suggestions.push("Add at least 2 projects.")
+    }
+
+    if (data.experience.length >= 1) {
+        score += 10
+    } else {
+        suggestions.push("Add internship or project work as experience.")
+    }
+
+    const skillsList = data.skills.split(',').filter(s => s.trim().length > 0)
+    if (skillsList.length >= 8) {
+        score += 10
+    } else {
+        suggestions.push("Add more skills (target 8+).")
+    }
+
+    if (data.links.github.trim() || data.links.linkedin.trim()) {
+        score += 10
+    } else {
+        suggestions.push("Add a GitHub or LinkedIn link.")
+    }
+
+    const numberRegex = /\d+%?|%|k\b/i
+    let hasNumber = false
+    data.experience.forEach(exp => {
+        if (numberRegex.test(exp.desc)) hasNumber = true
+    })
+    data.projects.forEach(proj => {
+        if (numberRegex.test(proj.desc)) hasNumber = true
+    })
+    if (hasNumber) {
+        score += 15
+    } else {
+        suggestions.push("Add measurable impact (numbers/%) in bullets.")
+    }
+
+    let eduComplete = false
+    if (data.education.length > 0) {
+        const firstEdu = data.education[0]
+        if (firstEdu.school.trim() && firstEdu.degree.trim() && firstEdu.year.trim()) {
+            eduComplete = true
+        }
+    }
+    if (eduComplete) {
+        score += 10
+    } else {
+        suggestions.push("Complete your education details.")
+    }
+
+    if (score > 100) score = 100
+    const topImprovements = suggestions.slice(0, 3)
 
     return (
         <div className="ds-twoPanel">
@@ -129,6 +338,81 @@ function Builder({ data, update }: { data: ResumeData; update: (d: ResumeData) =
                     </Field>
                 </Card>
 
+                <Card title="Experience">
+                    {data.experience.map((exp, idx) => {
+                        const warnings = getBulletWarnings(exp.desc)
+                        return (
+                            <div key={exp.id} style={{ marginBottom: 'var(--space-2)', borderBottom: idx < data.experience.length - 1 ? 'var(--border)' : 'none', paddingBottom: 'var(--space-2)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                                    <Field label="Company">
+                                        <TextInput value={exp.company} onChange={e => {
+                                            const newExp = [...data.experience]; newExp[idx].company = e.target.value; update({ ...data, experience: newExp })
+                                        }} />
+                                    </Field>
+                                    <Field label="Role">
+                                        <TextInput value={exp.role} onChange={e => {
+                                            const newExp = [...data.experience]; newExp[idx].role = e.target.value; update({ ...data, experience: newExp })
+                                        }} />
+                                    </Field>
+                                    <Field label="Duration">
+                                        <TextInput value={exp.duration} onChange={e => {
+                                            const newExp = [...data.experience]; newExp[idx].duration = e.target.value; update({ ...data, experience: newExp })
+                                        }} />
+                                    </Field>
+                                </div>
+                                <div style={{ marginTop: 'var(--space-1)' }}>
+                                    <Field label="Description">
+                                        <TextArea value={exp.desc} onChange={e => {
+                                            const newExp = [...data.experience]; newExp[idx].desc = e.target.value; update({ ...data, experience: newExp })
+                                        }} />
+                                    </Field>
+                                    {warnings.length > 0 && (
+                                        <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--color-accent)' }}>
+                                            {warnings.map((w, i) => <div key={i}>• {w}</div>)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    })}
+                    <Button variant="secondary" onClick={addExp}>+ Add Experience</Button>
+                </Card>
+
+                <Card title="Projects">
+                    {data.projects.map((proj, idx) => {
+                        const warnings = getBulletWarnings(proj.desc)
+                        return (
+                            <div key={proj.id} style={{ marginBottom: 'var(--space-2)', borderBottom: idx < data.projects.length - 1 ? 'var(--border)' : 'none', paddingBottom: 'var(--space-2)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                                    <Field label="Project Name">
+                                        <TextInput value={proj.name} onChange={e => {
+                                            const newProj = [...data.projects]; newProj[idx].name = e.target.value; update({ ...data, projects: newProj })
+                                        }} />
+                                    </Field>
+                                    <Field label="Link">
+                                        <TextInput value={proj.link} onChange={e => {
+                                            const newProj = [...data.projects]; newProj[idx].link = e.target.value; update({ ...data, projects: newProj })
+                                        }} />
+                                    </Field>
+                                </div>
+                                <div style={{ marginTop: 'var(--space-1)' }}>
+                                    <Field label="Description">
+                                        <TextArea value={proj.desc} onChange={e => {
+                                            const newProj = [...data.projects]; newProj[idx].desc = e.target.value; update({ ...data, projects: newProj })
+                                        }} />
+                                    </Field>
+                                    {warnings.length > 0 && (
+                                        <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--color-accent)' }}>
+                                            {warnings.map((w, i) => <div key={i}>• {w}</div>)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    })}
+                    <Button variant="secondary" onClick={addProj}>+ Add Project</Button>
+                </Card>
+
                 <Card title="Education">
                     {data.education.map((edu, idx) => (
                         <div key={edu.id} style={{ marginBottom: 'var(--space-2)', borderBottom: idx < data.education.length - 1 ? 'var(--border)' : 'none', paddingBottom: 'var(--space-2)' }}>
@@ -154,37 +438,7 @@ function Builder({ data, update }: { data: ResumeData; update: (d: ResumeData) =
                     <Button variant="secondary" onClick={addEdu}>+ Add Education</Button>
                 </Card>
 
-                <Card title="Experience">
-                    {data.experience.map((exp, idx) => (
-                        <div key={exp.id} style={{ marginBottom: 'var(--space-2)', borderBottom: idx < data.experience.length - 1 ? 'var(--border)' : 'none', paddingBottom: 'var(--space-2)' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
-                                <Field label="Company">
-                                    <TextInput value={exp.company} onChange={e => {
-                                        const newExp = [...data.experience]; newExp[idx].company = e.target.value; update({ ...data, experience: newExp })
-                                    }} />
-                                </Field>
-                                <Field label="Role">
-                                    <TextInput value={exp.role} onChange={e => {
-                                        const newExp = [...data.experience]; newExp[idx].role = e.target.value; update({ ...data, experience: newExp })
-                                    }} />
-                                </Field>
-                                <Field label="Duration">
-                                    <TextInput value={exp.duration} onChange={e => {
-                                        const newExp = [...data.experience]; newExp[idx].duration = e.target.value; update({ ...data, experience: newExp })
-                                    }} />
-                                </Field>
-                            </div>
-                            <Field label="Description">
-                                <TextArea value={exp.desc} onChange={e => {
-                                    const newExp = [...data.experience]; newExp[idx].desc = e.target.value; update({ ...data, experience: newExp })
-                                }} />
-                            </Field>
-                        </div>
-                    ))}
-                    <Button variant="secondary" onClick={addExp}>+ Add Experience</Button>
-                </Card>
-
-                <Card title="Projects & Skills">
+                <Card title="Skills & Links">
                     <Field label="Skills (comma separated)">
                         <TextInput value={data.skills} onChange={e => update({ ...data, skills: e.target.value })} placeholder="e.g. React, Python, Product Management" />
                     </Field>
@@ -199,50 +453,32 @@ function Builder({ data, update }: { data: ResumeData; update: (d: ResumeData) =
             </div>
 
             <aside className="ds-panelStack">
+                <Card title="ATS Readiness">
+                    <div style={{ padding: 'var(--space-2)', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: 'var(--border)', marginBottom: 'var(--space-2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ATS Readiness Score</strong>
+                            <span style={{ fontSize: '24px', fontWeight: 'bold', color: score >= 80 ? 'var(--color-state)' : 'var(--color-text)' }}>{score}</span>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', background: '#ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${score}%`, height: '100%', background: score >= 80 ? 'var(--color-state)' : 'var(--color-accent)', transition: 'width 0.3s ease' }} />
+                        </div>
+                    </div>
+
+                    {topImprovements.length > 0 && (
+                        <div>
+                            <p style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', opacity: 0.8, textTransform: 'uppercase' }}>Top 3 Improvements</p>
+                            <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '13px', color: 'var(--color-accent)' }}>
+                                {topImprovements.map((sug, i) => <li key={i} style={{ marginBottom: '4px' }}>{sug}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                </Card>
+
+                <TemplateSelector template={template} setTemplate={setTemplate} />
+
                 <Card title="Live Preview">
                     <div className="resume-preview-shell">
-                        <div style={{ padding: 'var(--space-3)', minHeight: '600px', background: 'white', color: 'black', border: '1px solid #ddd', fontSize: '12px', fontFamily: 'serif' }}>
-                            <div style={{ textAlign: 'center', marginBottom: 'var(--space-3)' }}>
-                                <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '2px' }}>{data.personal.name || 'Your Name'}</h2>
-                                <div>{data.personal.email} | {data.personal.phone}</div>
-                                <div>{data.personal.location}</div>
-                            </div>
-
-                            <div style={{ marginBottom: 'var(--space-3)' }}>
-                                <h3 style={{ borderBottom: '1px solid black', textTransform: 'uppercase', fontSize: '14px' }}>Summary</h3>
-                                <p>{data.summary || 'A brief summary of your career...'}</p>
-                            </div>
-
-                            <div style={{ marginBottom: 'var(--space-3)' }}>
-                                <h3 style={{ borderBottom: '1px solid black', textTransform: 'uppercase', fontSize: '14px' }}>Experience</h3>
-                                {data.experience.length === 0 && <p style={{ opacity: 0.5 }}>Work history...</p>}
-                                {data.experience.map(exp => (
-                                    <div key={exp.id} style={{ marginBottom: 'var(--space-2)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                                            <span>{exp.company}</span>
-                                            <span>{exp.duration}</span>
-                                        </div>
-                                        <div style={{ fontStyle: 'italic' }}>{exp.role}</div>
-                                        <p style={{ marginTop: '4px' }}>{exp.desc}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div style={{ marginBottom: 'var(--space-3)' }}>
-                                <h3 style={{ borderBottom: '1px solid black', textTransform: 'uppercase', fontSize: '14px' }}>Education</h3>
-                                {data.education.map(edu => (
-                                    <div key={edu.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                        <span>{edu.school} — {edu.degree}</span>
-                                        <span>{edu.year}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div>
-                                <h3 style={{ borderBottom: '1px solid black', textTransform: 'uppercase', fontSize: '14px' }}>Skills</h3>
-                                <p>{data.skills}</p>
-                            </div>
-                        </div>
+                        <ResumeDocument data={data} template={template} scale={0.65} />
                     </div>
                 </Card>
 
@@ -256,52 +492,13 @@ function Builder({ data, update }: { data: ResumeData; update: (d: ResumeData) =
     )
 }
 
-function Preview({ data }: { data: ResumeData }) {
+function Preview({ data, template, setTemplate }: { data: ResumeData; template: TemplateType; setTemplate: (t: TemplateType) => void }) {
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', padding: '60px', minHeight: '1000px', boxShadow: '0 0 20px rgba(0,0,0,0.05)', color: 'black', fontFamily: 'var(--font-serif)' }}>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                <h1 style={{ margin: '0 0 8px', fontSize: '32px', letterSpacing: '1px', fontWeight: 'normal', textTransform: 'uppercase' }}>{data.personal.name || 'NAME'}</h1>
-                <div style={{ fontSize: '14px', opacity: 0.8 }}>
-                    {data.personal.email} • {data.personal.phone} • {data.personal.location}
-                </div>
-                <div style={{ fontSize: '14px', marginTop: '4px', opacity: 0.8 }}>
-                    {data.links.github} | {data.links.linkedin}
-                </div>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{ marginBottom: 'var(--space-3)' }}>
+                <TemplateSelector template={template} setTemplate={setTemplate} />
             </div>
-
-            <section style={{ marginBottom: '32px' }}>
-                <h2 style={{ fontSize: '16px', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>Professional Summary</h2>
-                <p style={{ fontSize: '14px', lineHeight: '1.6' }}>{data.summary || 'No summary provided.'}</p>
-            </section>
-
-            <section style={{ marginBottom: '32px' }}>
-                <h2 style={{ fontSize: '16px', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>Professional Experience</h2>
-                {data.experience.map(exp => (
-                    <div key={exp.id} style={{ marginBottom: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px' }}>
-                            <span>{exp.company}</span>
-                            <span>{exp.duration}</span>
-                        </div>
-                        <div style={{ fontStyle: 'italic', fontSize: '14px', marginBottom: '4px' }}>{exp.role}</div>
-                        <p style={{ fontSize: '14px', lineHeight: '1.5', margin: 0 }}>{exp.desc}</p>
-                    </div>
-                ))}
-            </section>
-
-            <section style={{ marginBottom: '32px' }}>
-                <h2 style={{ fontSize: '16px', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>Education</h2>
-                {data.education.map(edu => (
-                    <div key={edu.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-                        <span><span style={{ fontWeight: 'bold' }}>{edu.school}</span>, {edu.degree}</span>
-                        <span>{edu.year}</span>
-                    </div>
-                ))}
-            </section>
-
-            <section>
-                <h2 style={{ fontSize: '16px', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>Skills</h2>
-                <p style={{ fontSize: '14px' }}>{data.skills || 'No skills listed.'}</p>
-            </section>
+            <ResumeDocument data={data} template={template} />
         </div>
     )
 }
@@ -331,8 +528,13 @@ function Proof() {
 
 export default function App() {
     const [data, setData] = useState<ResumeData>(() => {
-        const saved = localStorage.getItem('rb_resume_data')
+        const saved = localStorage.getItem('resumeBuilderData')
         return saved ? JSON.parse(saved) : DEFAULT_DATA
+    })
+
+    const [template, setTemplate] = useState<TemplateType>(() => {
+        const saved = localStorage.getItem('rb_resume_template') as TemplateType
+        return saved ? saved : 'Classic'
     })
 
     const [proof, setProof] = useState<ProofState>({
@@ -343,8 +545,12 @@ export default function App() {
     })
 
     useEffect(() => {
-        localStorage.setItem('rb_resume_data', JSON.stringify(data))
+        localStorage.setItem('resumeBuilderData', JSON.stringify(data))
     }, [data])
+
+    useEffect(() => {
+        localStorage.setItem('rb_resume_template', template)
+    }, [template])
 
     const updateProof = (key: ProofKey, next: { checked?: boolean; proof?: string }) => {
         setProof((prev) => ({ ...prev, [key]: { ...prev[key], ...next } }))
@@ -358,8 +564,8 @@ export default function App() {
                 <div className="ds-container">
                     <Routes>
                         <Route path="/" element={<Home />} />
-                        <Route path="/builder" element={<Builder data={data} update={setData} />} />
-                        <Route path="/preview" element={<Preview data={data} />} />
+                        <Route path="/builder" element={<Builder data={data} update={setData} template={template} setTemplate={setTemplate} />} />
+                        <Route path="/preview" element={<Preview data={data} template={template} setTemplate={setTemplate} />} />
                         <Route path="/proof" element={<Proof />} />
                     </Routes>
                 </div>
