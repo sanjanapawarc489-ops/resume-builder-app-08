@@ -24,7 +24,9 @@ interface Project {
     id: string
     name: string
     desc: string
+    techStack: string[]
     link: string
+    github: string
 }
 
 interface ResumeData {
@@ -38,7 +40,11 @@ interface ResumeData {
     education: Education[]
     experience: Experience[]
     projects: Project[]
-    skills: string
+    skills: {
+        technical: string[]
+        soft: string[]
+        tools: string[]
+    }
     links: {
         github: string
         linkedin: string
@@ -53,7 +59,7 @@ const DEFAULT_DATA: ResumeData = {
     education: [],
     experience: [],
     projects: [],
-    skills: '',
+    skills: { technical: [], soft: [], tools: [] },
     links: { github: '', linkedin: '' }
 }
 
@@ -72,9 +78,13 @@ const SAMPLE_DATA: ResumeData = {
         { id: '1', company: 'Global Tech', role: 'Senior Developer', duration: '2021 - Present', desc: 'Leading the frontend team in developing AI-driven features.' }
     ],
     projects: [
-        { id: '1', name: 'AI Resume Builder', desc: 'A premium tool for creating resumes using AI.', link: 'github.com/janedoe/builder' }
+        { id: '1', name: 'AI Resume Builder', desc: 'A premium tool for creating resumes using AI.', techStack: ['React', 'TypeScript', 'Node.js', 'OpenAI'], link: 'https://builder.example.com', github: 'github.com/janedoe/builder' }
     ],
-    skills: 'React, TypeScript, Node.js, OpenAI, Python, AWS',
+    skills: {
+        technical: ['React', 'TypeScript', 'Node.js', 'Python'],
+        soft: ['Communication', 'Team Leadership'],
+        tools: ['AWS', 'Git']
+    },
     links: {
         github: 'github.com/janedoe',
         linkedin: 'linkedin.com/in/janedoe'
@@ -176,8 +186,18 @@ function ResumeDocument({ data, template, scale = 1 }: { data: ResumeData; templ
                         <div key={proj.id} className="resume-item" style={{ marginBottom: `${16 * scale}px` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                                 <span>{proj.name}</span>
-                                <span>{proj.link}</span>
+                                <span style={{ fontSize: `${11 * scale}px`, fontWeight: 'normal' }}>
+                                    {proj.link && <span>🔗 {proj.link} </span>}
+                                    {proj.github && <span>🐙 {proj.github}</span>}
+                                </span>
                             </div>
+                            {proj.techStack && proj.techStack.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: `${4 * scale}px`, margin: `${4 * scale}px 0` }}>
+                                    {proj.techStack.map(ts => (
+                                        <span key={ts} style={{ fontSize: `${10 * scale}px`, background: '#eee', padding: `${2 * scale}px ${6 * scale}px`, borderRadius: '4px', color: '#333' }}>{ts}</span>
+                                    ))}
+                                </div>
+                            )}
                             <p style={{ ...bodyStyle, margin: `${4 * scale}px 0 0`, whiteSpace: 'pre-wrap' }}>{proj.desc}</p>
                         </div>
                     ))}
@@ -196,10 +216,27 @@ function ResumeDocument({ data, template, scale = 1 }: { data: ResumeData; templ
                 </section>
             )}
 
-            {data.skills && (
+            {(data.skills.technical.length > 0 || data.skills.soft.length > 0 || data.skills.tools.length > 0) && (
                 <section>
                     <h2 style={sectionTitleStyle}>Skills</h2>
-                    <p style={{ ...bodyStyle, whiteSpace: 'pre-wrap', margin: 0 }}>{data.skills}</p>
+                    {data.skills.technical.length > 0 && (
+                        <div style={{ marginBottom: `${8 * scale}px` }}>
+                            <strong style={{ fontSize: `${11 * scale}px` }}>Technical: </strong>
+                            {data.skills.technical.map(s => <span key={s} style={{ display: 'inline-block', fontSize: `${11 * scale}px`, background: 'var(--color-bg)', padding: `${2 * scale}px ${6 * scale}px`, borderRadius: '12px', margin: `0 ${4 * scale}px ${4 * scale}px 0`, border: '1px solid #ddd' }}>{s}</span>)}
+                        </div>
+                    )}
+                    {data.skills.soft.length > 0 && (
+                        <div style={{ marginBottom: `${8 * scale}px` }}>
+                            <strong style={{ fontSize: `${11 * scale}px` }}>Soft Skills: </strong>
+                            {data.skills.soft.map(s => <span key={s} style={{ display: 'inline-block', fontSize: `${11 * scale}px`, background: 'var(--color-bg)', padding: `${2 * scale}px ${6 * scale}px`, borderRadius: '12px', margin: `0 ${4 * scale}px ${4 * scale}px 0`, border: '1px solid #ddd' }}>{s}</span>)}
+                        </div>
+                    )}
+                    {data.skills.tools.length > 0 && (
+                        <div>
+                            <strong style={{ fontSize: `${11 * scale}px` }}>Tools & Tech: </strong>
+                            {data.skills.tools.map(s => <span key={s} style={{ display: 'inline-block', fontSize: `${11 * scale}px`, background: 'var(--color-bg)', padding: `${2 * scale}px ${6 * scale}px`, borderRadius: '12px', margin: `0 ${4 * scale}px ${4 * scale}px 0`, border: '1px solid #ddd' }}>{s}</span>)}
+                        </div>
+                    )}
                 </section>
             )}
         </div>
@@ -224,6 +261,78 @@ function TemplateSelector({ template, setTemplate }: { template: TemplateType; s
 
 // --- Pages ---
 
+function TagInput({ label, tags, onChange }: { label: string; tags: string[]; onChange: (tags: string[]) => void }) {
+    const [input, setInput] = useState('')
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const val = input.trim()
+            if (val && !tags.includes(val)) {
+                onChange([...tags, val])
+                setInput('')
+            }
+        }
+    }
+    const removeTag = (tag: string) => onChange(tags.filter(t => t !== tag))
+
+    return (
+        <Field label={label}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                {tags.map(t => (
+                    <span key={t} style={{ background: '#333', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {t}
+                        <button type="button" onClick={() => removeTag(t)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', padding: 0, fontSize: '12px', lineHeight: 1 }}>×</button>
+                    </span>
+                ))}
+            </div>
+            <TextInput value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Type skill and press Enter" />
+        </Field>
+    )
+}
+
+function ProjectEntry({ proj, updateProj, removeProj, idx }: { proj: Project; updateProj: (p: Project) => void; removeProj: () => void; idx: number }) {
+    const [open, setOpen] = useState(false)
+    const warnings = getBulletWarnings(proj.desc)
+    return (
+        <div style={{ marginBottom: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+            <div onClick={() => setOpen(!open)} style={{ background: 'var(--color-bg)', padding: 'var(--space-2)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <strong style={{ fontSize: '14px' }}>{proj.name || `New Project ${idx + 1}`}</strong>
+                <span>{open ? '▼' : '▶'}</span>
+            </div>
+            {open && (
+                <div style={{ padding: 'var(--space-2)', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                        <Field label="Project Title">
+                            <TextInput value={proj.name} onChange={e => updateProj({ ...proj, name: e.target.value })} />
+                        </Field>
+                        <TagInput label="Tech Stack" tags={proj.techStack || []} onChange={ts => updateProj({ ...proj, techStack: ts })} />
+                        <Field label="Live URL (Optional)">
+                            <TextInput value={proj.link} onChange={e => updateProj({ ...proj, link: e.target.value })} />
+                        </Field>
+                        <Field label="GitHub URL (Optional)">
+                            <TextInput value={proj.github} onChange={e => updateProj({ ...proj, github: e.target.value })} />
+                        </Field>
+                    </div>
+                    <div style={{ marginTop: 'var(--space-1)' }}>
+                        <Field label={`Description (${proj.desc.length}/200)`}>
+                            <TextArea maxLength={200} value={proj.desc} onChange={e => updateProj({ ...proj, desc: e.target.value })} />
+                        </Field>
+                        {warnings.length > 0 && (
+                            <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--color-accent)' }}>
+                                {warnings.map((w, i) => <div key={i}>• {w}</div>)}
+                            </div>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}>
+                        <Button variant="secondary" onClick={removeProj} style={{ background: '#ffeded', color: '#c00', border: 'none' }}>Delete</Button>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+
 function Home() {
     const navigate = useNavigate()
     return (
@@ -242,7 +351,7 @@ function Home() {
 function Builder({ data, update, template, setTemplate }: { data: ResumeData; update: (d: ResumeData) => void; template: TemplateType; setTemplate: (t: TemplateType) => void }) {
     const addEdu = () => update({ ...data, education: [...data.education, { id: Date.now().toString(), school: '', degree: '', year: '' }] })
     const addExp = () => update({ ...data, experience: [...data.experience, { id: Date.now().toString(), company: '', role: '', duration: '', desc: '' }] })
-    const addProj = () => update({ ...data, projects: [...data.projects, { id: Date.now().toString(), name: '', desc: '', link: '' }] })
+    const addProj = () => update({ ...data, projects: [...data.projects, { id: Date.now().toString(), name: '', desc: '', link: '', github: '', techStack: [] }] })
 
     const loadSample = () => update(SAMPLE_DATA)
 
@@ -269,8 +378,12 @@ function Builder({ data, update, template, setTemplate }: { data: ResumeData; up
         suggestions.push("Add internship or project work as experience.")
     }
 
-    const skillsList = data.skills.split(',').filter(s => s.trim().length > 0)
-    if (skillsList.length >= 8) {
+    const toolsCount = data.skills?.tools?.length || 0;
+    const techCount = data.skills?.technical?.length || 0;
+    const softCount = data.skills?.soft?.length || 0;
+    const totalSkills = techCount + softCount + toolsCount;
+
+    if (totalSkills >= 8) {
         score += 10
     } else {
         suggestions.push("Add more skills (target 8+).")
@@ -379,37 +492,19 @@ function Builder({ data, update, template, setTemplate }: { data: ResumeData; up
                 </Card>
 
                 <Card title="Projects">
-                    {data.projects.map((proj, idx) => {
-                        const warnings = getBulletWarnings(proj.desc)
-                        return (
-                            <div key={proj.id} style={{ marginBottom: 'var(--space-2)', borderBottom: idx < data.projects.length - 1 ? 'var(--border)' : 'none', paddingBottom: 'var(--space-2)' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
-                                    <Field label="Project Name">
-                                        <TextInput value={proj.name} onChange={e => {
-                                            const newProj = [...data.projects]; newProj[idx].name = e.target.value; update({ ...data, projects: newProj })
-                                        }} />
-                                    </Field>
-                                    <Field label="Link">
-                                        <TextInput value={proj.link} onChange={e => {
-                                            const newProj = [...data.projects]; newProj[idx].link = e.target.value; update({ ...data, projects: newProj })
-                                        }} />
-                                    </Field>
-                                </div>
-                                <div style={{ marginTop: 'var(--space-1)' }}>
-                                    <Field label="Description">
-                                        <TextArea value={proj.desc} onChange={e => {
-                                            const newProj = [...data.projects]; newProj[idx].desc = e.target.value; update({ ...data, projects: newProj })
-                                        }} />
-                                    </Field>
-                                    {warnings.length > 0 && (
-                                        <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--color-accent)' }}>
-                                            {warnings.map((w, i) => <div key={i}>• {w}</div>)}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )
-                    })}
+                    {data.projects.map((proj, idx) => (
+                        <ProjectEntry
+                            key={proj.id}
+                            proj={proj}
+                            idx={idx}
+                            updateProj={(p) => {
+                                const newP = [...data.projects]; newP[idx] = p; update({ ...data, projects: newP })
+                            }}
+                            removeProj={() => {
+                                const newP = [...data.projects]; newP.splice(idx, 1); update({ ...data, projects: newP })
+                            }}
+                        />
+                    ))}
                     <Button variant="secondary" onClick={addProj}>+ Add Project</Button>
                 </Card>
 
@@ -438,11 +533,36 @@ function Builder({ data, update, template, setTemplate }: { data: ResumeData; up
                     <Button variant="secondary" onClick={addEdu}>+ Add Education</Button>
                 </Card>
 
-                <Card title="Skills & Links">
-                    <Field label="Skills (comma separated)">
-                        <TextInput value={data.skills} onChange={e => update({ ...data, skills: e.target.value })} placeholder="e.g. React, Python, Product Management" />
-                    </Field>
-                    <div style={{ height: 'var(--space-3)' }} />
+                <Card title="Skills">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h4 style={{ margin: 0 }}>Skill Categories</h4>
+                        <Button variant="secondary" onClick={() => {
+                            const btn = document.activeElement as HTMLButtonElement;
+                            if (btn) {
+                                const orig = btn.innerText;
+                                btn.innerText = "⏳ Loading...";
+                                setTimeout(() => {
+                                    update({
+                                        ...data,
+                                        skills: {
+                                            technical: Array.from(new Set([...(data.skills?.technical || []), "TypeScript", "React", "Node.js", "PostgreSQL", "GraphQL"])),
+                                            soft: Array.from(new Set([...(data.skills?.soft || []), "Team Leadership", "Problem Solving"])),
+                                            tools: Array.from(new Set([...(data.skills?.tools || []), "Git", "Docker", "AWS"]))
+                                        }
+                                    });
+                                    btn.innerText = orig;
+                                }, 1000);
+                            }
+                        }}>✨ Suggest Skills</Button>
+                    </div>
+                    <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+                        <TagInput label={`Technical Skills (${data.skills?.technical?.length || 0})`} tags={data.skills?.technical || []} onChange={(t) => update({ ...data, skills: { ...data.skills, technical: t } })} />
+                        <TagInput label={`Soft Skills (${data.skills?.soft?.length || 0})`} tags={data.skills?.soft || []} onChange={(t) => update({ ...data, skills: { ...data.skills, soft: t } })} />
+                        <TagInput label={`Tools & Technologies (${data.skills?.tools?.length || 0})`} tags={data.skills?.tools || []} onChange={(t) => update({ ...data, skills: { ...data.skills, tools: t } })} />
+                    </div>
+                </Card>
+
+                <Card title="Links">
                     <Field label="GitHub URL">
                         <TextInput value={data.links.github} onChange={e => update({ ...data, links: { ...data.links, github: e.target.value } })} />
                     </Field>
@@ -537,13 +657,18 @@ function Preview({ data, template, setTemplate }: { data: ResumeData; template: 
                 if (proj.name) projParts.push(proj.name)
                 if (proj.link) projParts.push(proj.link)
                 if (projParts.length) text += `${projParts.join(' | ')}\n`
+                if (proj.techStack && proj.techStack.length > 0) text += `Tech Stack: ${proj.techStack.join(', ')}\n`
                 if (proj.desc) text += `${proj.desc}\n`
                 text += `\n`
             })
         }
 
-        if (data.skills) {
-            text += `SKILLS\n${data.skills}\n\n`
+        if (data.skills.technical.length > 0 || data.skills.soft.length > 0 || data.skills.tools.length > 0) {
+            text += `SKILLS\n`
+            if (data.skills.technical.length > 0) text += `Technical: ${data.skills.technical.join(', ')}\n`
+            if (data.skills.soft.length > 0) text += `Soft Skills: ${data.skills.soft.join(', ')}\n`
+            if (data.skills.tools.length > 0) text += `Tools & Technologies: ${data.skills.tools.join(', ')}\n`
+            text += `\n`
         }
 
         const linkParts = []
@@ -609,7 +734,28 @@ function Proof() {
 export default function App() {
     const [data, setData] = useState<ResumeData>(() => {
         const saved = localStorage.getItem('resumeBuilderData')
-        return saved ? JSON.parse(saved) : DEFAULT_DATA
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved)
+                // migrate skills
+                if (typeof parsed.skills === 'string') {
+                    const str = parsed.skills as string;
+                    parsed.skills = { technical: str.split(',').map(s => s.trim()).filter(Boolean), soft: [], tools: [] }
+                }
+                // migrate projects
+                if (parsed.projects) {
+                    parsed.projects = parsed.projects.map((p: any) => ({
+                        ...p,
+                        techStack: p.techStack || [],
+                        github: p.github || ''
+                    }))
+                }
+                return parsed
+            } catch {
+                return DEFAULT_DATA
+            }
+        }
+        return DEFAULT_DATA
     })
 
     const [template, setTemplate] = useState<TemplateType>(() => {
