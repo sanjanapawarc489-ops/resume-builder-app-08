@@ -93,6 +93,50 @@ const SAMPLE_DATA: ResumeData = {
 
 // --- Utils ---
 
+function calculateATSScore(data: ResumeData) {
+    let score = 0
+    const suggestions: string[] = []
+
+    if (data.personal.name.trim()) score += 10
+    else suggestions.push("Add a professional name (+10 points)")
+
+    if (data.personal.email.trim()) score += 10
+    else suggestions.push("Add an email address (+10 points)")
+
+    if (data.summary.trim().length > 50) score += 10
+    else suggestions.push("Add a professional summary > 50 characters (+10 points)")
+
+    const actionVerbs = /(built|led|designed|improved|created|developed|managed|optimized|automated)/i
+    if (data.summary && actionVerbs.test(data.summary)) score += 10
+    else suggestions.push("Use strong action verbs in your summary (+10 points)")
+
+    const expWithDesc = data.experience.some(exp => exp.desc.trim().length > 0)
+    if (data.experience.length > 0 && expWithDesc) score += 15
+    else suggestions.push("Add experience with bullet points (+15 points)")
+
+    if (data.education.length > 0 && data.education[0].school.trim()) score += 10
+    else suggestions.push("Add at least one education entry (+10 points)")
+
+    const totalSkills = (data.skills?.technical?.length || 0) + (data.skills?.soft?.length || 0) + (data.skills?.tools?.length || 0)
+    if (totalSkills >= 5) score += 10
+    else suggestions.push("Add at least 5 skills (+10 points)")
+
+    if (data.projects.length > 0 && data.projects[0].name.trim()) score += 10
+    else suggestions.push("Add at least one project (+10 points)")
+
+    if (data.personal.phone.trim()) score += 5
+    else suggestions.push("Add a phone number (+5 points)")
+
+    if (data.links.linkedin.trim()) score += 5
+    else suggestions.push("Add a LinkedIn profile (+5 points)")
+
+    if (data.links.github.trim()) score += 5
+    else suggestions.push("Add a GitHub profile (+5 points)")
+
+    if (score > 100) score = 100
+    return { score, suggestions }
+}
+
 function getBulletWarnings(desc: string): string[] {
     if (!desc.trim()) return []
     const lines = desc.split('\n').filter(l => l.trim().length > 0)
@@ -423,6 +467,53 @@ function ProjectEntry({ proj, updateProj, removeProj, idx }: { proj: Project; up
 }
 
 
+function ATSScoreWidget({ data }: { data: ResumeData }) {
+    const { score, suggestions } = calculateATSScore(data)
+
+    let color = 'var(--color-state)'
+    let label = 'Strong Resume'
+    if (score <= 40) {
+        color = '#e74c3c'
+        label = 'Needs Work'
+    } else if (score <= 70) {
+        color = '#f39c12'
+        label = 'Getting There'
+    }
+
+    const radius = 36
+    const circumference = 2 * Math.PI * radius
+    const strokeDashoffset = circumference - (score / 100) * circumference
+
+    return (
+        <Card title="ATS Readiness">
+            <div style={{ padding: 'var(--space-2)', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: 'var(--border)', marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
+                    <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: 'rotate(-90deg)' }}>
+                        <circle cx="40" cy="40" r={radius} fill="none" stroke="#e0e0e0" strokeWidth="8" />
+                        <circle cx="40" cy="40" r={radius} fill="none" stroke={color} strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} style={{ transition: 'stroke-dashoffset 0.5s ease' }} strokeLinecap="round" />
+                    </svg>
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px', color }}>
+                        {score}
+                    </div>
+                </div>
+                <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px', color }}>{label}</div>
+                    <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '4px' }}>Target: 80+ for best results</div>
+                </div>
+            </div>
+
+            {suggestions.length > 0 && (
+                <div>
+                    <p style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', opacity: 0.8, textTransform: 'uppercase' }}>Improvements</p>
+                    <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '13px', color: 'var(--color-accent)' }}>
+                        {suggestions.slice(0, 4).map((sug, i) => <li key={i} style={{ marginBottom: '4px' }}>{sug}</li>)}
+                    </ul>
+                </div>
+            )}
+        </Card>
+    )
+}
+
 function Home() {
     const navigate = useNavigate()
     return (
@@ -451,76 +542,6 @@ function Builder({ data, update, template, setTemplate, color, setColor }: { dat
     }
 
     const loadSample = () => update(SAMPLE_DATA)
-
-    // Compute ATS Score
-    let score = 20 // Base score
-    const suggestions: string[] = []
-
-    const summaryWords = data.summary.trim().split(/\s+/).filter(Boolean).length
-    if (summaryWords >= 40 && summaryWords <= 120) {
-        score += 15
-    } else {
-        suggestions.push("Write a stronger summary (40–120 words).")
-    }
-
-    if (data.projects.length >= 2) {
-        score += 10
-    } else {
-        suggestions.push("Add at least 2 projects.")
-    }
-
-    if (data.experience.length >= 1) {
-        score += 10
-    } else {
-        suggestions.push("Add internship or project work as experience.")
-    }
-
-    const toolsCount = data.skills?.tools?.length || 0;
-    const techCount = data.skills?.technical?.length || 0;
-    const softCount = data.skills?.soft?.length || 0;
-    const totalSkills = techCount + softCount + toolsCount;
-
-    if (totalSkills >= 8) {
-        score += 10
-    } else {
-        suggestions.push("Add more skills (target 8+).")
-    }
-
-    if (data.links.github.trim() || data.links.linkedin.trim()) {
-        score += 10
-    } else {
-        suggestions.push("Add a GitHub or LinkedIn link.")
-    }
-
-    const numberRegex = /\d+%?|%|k\b/i
-    let hasNumber = false
-    data.experience.forEach(exp => {
-        if (numberRegex.test(exp.desc)) hasNumber = true
-    })
-    data.projects.forEach(proj => {
-        if (numberRegex.test(proj.desc)) hasNumber = true
-    })
-    if (hasNumber) {
-        score += 15
-    } else {
-        suggestions.push("Add measurable impact (numbers/%) in bullets.")
-    }
-
-    let eduComplete = false
-    if (data.education.length > 0) {
-        const firstEdu = data.education[0]
-        if (firstEdu.school.trim() && firstEdu.degree.trim() && firstEdu.year.trim()) {
-            eduComplete = true
-        }
-    }
-    if (eduComplete) {
-        score += 10
-    } else {
-        suggestions.push("Complete your education details.")
-    }
-
-    if (score > 100) score = 100
-    const topImprovements = suggestions.slice(0, 3)
 
     return (
         <div className="ds-twoPanel">
@@ -670,26 +691,7 @@ function Builder({ data, update, template, setTemplate, color, setColor }: { dat
             </div>
 
             <aside className="ds-panelStack">
-                <Card title="ATS Readiness">
-                    <div style={{ padding: 'var(--space-2)', background: 'var(--color-bg)', borderRadius: 'var(--radius)', border: 'var(--border)', marginBottom: 'var(--space-2)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <strong style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ATS Readiness Score</strong>
-                            <span style={{ fontSize: '24px', fontWeight: 'bold', color: score >= 80 ? 'var(--color-state)' : 'var(--color-text)' }}>{score}</span>
-                        </div>
-                        <div style={{ width: '100%', height: '6px', background: '#ddd', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{ width: `${score}%`, height: '100%', background: score >= 80 ? 'var(--color-state)' : 'var(--color-accent)', transition: 'width 0.3s ease' }} />
-                        </div>
-                    </div>
-
-                    {topImprovements.length > 0 && (
-                        <div>
-                            <p style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', opacity: 0.8, textTransform: 'uppercase' }}>Top 3 Improvements</p>
-                            <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '13px', color: 'var(--color-accent)' }}>
-                                {topImprovements.map((sug, i) => <li key={i} style={{ marginBottom: '4px' }}>{sug}</li>)}
-                            </ul>
-                        </div>
-                    )}
-                </Card>
+                <ATSScoreWidget data={data} />
 
                 <TemplateSelector template={template} setTemplate={setTemplate} color={color} setColor={setColor} />
 
@@ -809,7 +811,10 @@ function Preview({ data, template, setTemplate, color, setColor }: { data: Resum
                     <Button variant="primary" onClick={handleDownload}>Print / Save as PDF</Button>
                     <Button variant="secondary" onClick={handleCopyText}>Copy Resume as Text</Button>
                 </div>
-                <TemplateSelector template={template} setTemplate={setTemplate} color={color} setColor={setColor} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--space-3)' }}>
+                    <ATSScoreWidget data={data} />
+                    <TemplateSelector template={template} setTemplate={setTemplate} color={color} setColor={setColor} />
+                </div>
             </div>
             <div className="resume-print-container">
                 <ResumeDocument data={data} template={template} color={color} />
