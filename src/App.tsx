@@ -1,55 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { TopNav, ProofFooter, type ProofState, type ProofKey } from './design-system/layout'
 import { Button, Card, Field, TextArea, TextInput } from './design-system/ui'
+import { loadState, saveState, calculateReadiness, generateNotifications, type AppState, type ResumeData, type JobMatch, type Application, type JDAnalysis } from './store'
+import Dashboard from './pages/Dashboard'
+import Jobs from './pages/Jobs'
+import Analyze from './pages/Analyze'
+import Applications from './pages/Applications'
+import Settings from './pages/Settings'
 
-// --- Types ---
 
-interface Education {
-    id: string
-    school: string
-    degree: string
-    year: string
-}
-
-interface Experience {
-    id: string
-    company: string
-    role: string
-    duration: string
-    desc: string
-}
-
-interface Project {
-    id: string
-    name: string
-    desc: string
-    techStack: string[]
-    link: string
-    github: string
-}
-
-interface ResumeData {
-    personal: {
-        name: string
-        email: string
-        phone: string
-        location: string
-    }
-    summary: string
-    education: Education[]
-    experience: Experience[]
-    projects: Project[]
-    skills: {
-        technical: string[]
-        soft: string[]
-        tools: string[]
-    }
-    links: {
-        github: string
-        linkedin: string
-    }
-}
+// --- Local types (aliased from store for internal use) ---
+type Education = ResumeData['education'][0]
+type Experience = ResumeData['experience'][0]
+type Project = ResumeData['projects'][0]
 
 type TemplateType = 'Classic' | 'Modern' | 'Minimal'
 
@@ -70,12 +34,12 @@ const SAMPLE_DATA: ResumeData = {
         phone: '+1 234 567 890',
         location: 'San Francisco, CA'
     },
-    summary: 'Experienced Software Engineer with a passion for building scalable web applications and AI integrations.',
+    summary: 'Experienced Software Engineer with a passion for building scalable web applications and AI integrations. Led teams, designed systems, and improved performance at scale.',
     education: [
         { id: '1', school: 'Tech University', degree: 'B.S. Computer Science', year: '2016 - 2020' }
     ],
     experience: [
-        { id: '1', company: 'Global Tech', role: 'Senior Developer', duration: '2021 - Present', desc: 'Leading the frontend team in developing AI-driven features.' }
+        { id: '1', company: 'Global Tech', role: 'Senior Developer', duration: '2021 - Present', desc: 'Leading the frontend team in developing AI-driven features. Improved load times by 40%.' }
     ],
     projects: [
         { id: '1', name: 'AI Resume Builder', desc: 'A premium tool for creating resumes using AI.', techStack: ['React', 'TypeScript', 'Node.js', 'OpenAI'], link: 'https://builder.example.com', github: 'github.com/janedoe/builder' }
@@ -852,31 +816,7 @@ function Proof() {
 // --- Main App ---
 
 export default function App() {
-    const [data, setData] = useState<ResumeData>(() => {
-        const saved = localStorage.getItem('resumeBuilderData')
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved)
-                // migrate skills
-                if (typeof parsed.skills === 'string') {
-                    const str = parsed.skills as string;
-                    parsed.skills = { technical: str.split(',').map(s => s.trim()).filter(Boolean), soft: [], tools: [] }
-                }
-                // migrate projects
-                if (parsed.projects) {
-                    parsed.projects = parsed.projects.map((p: any) => ({
-                        ...p,
-                        techStack: p.techStack || [],
-                        github: p.github || ''
-                    }))
-                }
-                return parsed
-            } catch {
-                return DEFAULT_DATA
-            }
-        }
-        return DEFAULT_DATA
-    })
+    const [appState, setAppState] = useState<AppState>(() => loadState())
 
     const [template, setTemplate] = useState<TemplateType>(() => {
         const saved = localStorage.getItem('rb_resume_template') as TemplateType
@@ -895,32 +835,68 @@ export default function App() {
         deployed: { checked: false, proof: '' },
     })
 
+    // Sync appState to localStorage + recompute readiness + notifications on every change
     useEffect(() => {
-        localStorage.setItem('resumeBuilderData', JSON.stringify(data))
-    }, [data])
+        const readinessScore = calculateReadiness(appState)
+        const notifications = generateNotifications({ ...appState, readinessScore })
+        const next = { ...appState, readinessScore, notifications, lastActivity: new Date().toISOString() }
+        saveState(next)
+    }, [appState])
 
-    useEffect(() => {
-        localStorage.setItem('rb_resume_template', template)
-    }, [template])
+    useEffect(() => { localStorage.setItem('rb_resume_template', template) }, [template])
+    useEffect(() => { localStorage.setItem('rb_resume_color', color) }, [color])
 
-    useEffect(() => {
-        localStorage.setItem('rb_resume_color', color)
-    }, [color])
+    const updateResume = useCallback((resumeData: ResumeData) => {
+        setAppState(prev => ({ ...prev, resumeData }))
+    }, [])
+
+    const updateJobs = useCallback((jobMatches: JobMatch[]) => {
+        setAppState(prev => ({ ...prev, jobMatches }))
+    }, [])
+
+    const addAnalysis = useCallback((analysis: JDAnalysis) => {
+        setAppState(prev => ({ ...prev, jdAnalyses: [...prev.jdAnalyses.filter(a => a.id !== analysis.id), analysis] }))
+    }, [])
+
+    const updateApplications = useCallback((applications: Application[]) => {
+        setAppState(prev => ({ ...prev, applications }))
+    }, [])
+
+    const updatePreferences = useCallback((prefs: Partial<AppState['preferences']>) => {
+        setAppState(prev => ({ ...prev, preferences: { ...prev.preferences, ...prefs } }))
+    }, [])
 
     const updateProof = (key: ProofKey, next: { checked?: boolean; proof?: string }) => {
         setProof((prev) => ({ ...prev, [key]: { ...prev[key], ...next } }))
     }
 
+    const readinessScore = calculateReadiness(appState)
+    const overallReadiness = Math.round(
+        (readinessScore.jobMatchQuality * 0.30) +
+        (readinessScore.jdSkillAlignment * 0.25) +
+        (readinessScore.resumeATS * 0.25) +
+        (readinessScore.applicationProgress * 0.10) +
+        (readinessScore.practiceCompletion * 0.10)
+    )
+
+    const enrichedState: AppState = { ...appState, readinessScore, notifications: generateNotifications({ ...appState, readinessScore }) }
+
     return (
         <div className="ds-shell">
-            <TopNav />
+            <TopNav readinessScore={overallReadiness} />
 
             <main className="ds-main" style={{ marginTop: 'var(--space-3)' }}>
                 <div className="ds-container">
                     <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/builder" element={<Builder data={data} update={setData} template={template} setTemplate={setTemplate} color={color} setColor={setColor} />} />
-                        <Route path="/preview" element={<Preview data={data} template={template} setTemplate={setTemplate} color={color} setColor={setColor} />} />
+                        <Route path="/" element={<Dashboard state={enrichedState} />} />
+                        <Route path="/jobs" element={<Jobs state={enrichedState} updateJobs={updateJobs} />} />
+                        <Route path="/analyze" element={<Analyze state={enrichedState} addAnalysis={addAnalysis} />} />
+                        <Route path="/applications" element={<Applications state={enrichedState} updateApplications={updateApplications} />} />
+                        <Route path="/settings" element={<Settings state={enrichedState} updatePreferences={updatePreferences} />} />
+                        {/* Resume builder — preserved exactly */}
+                        <Route path="/resume" element={<Builder data={appState.resumeData} update={updateResume} template={template} setTemplate={setTemplate} color={color} setColor={setColor} />} />
+                        <Route path="/preview" element={<Preview data={appState.resumeData} template={template} setTemplate={setTemplate} color={color} setColor={setColor} />} />
+                        <Route path="/builder" element={<Builder data={appState.resumeData} update={updateResume} template={template} setTemplate={setTemplate} color={color} setColor={setColor} />} />
                         <Route path="/proof" element={<Proof />} />
                     </Routes>
                 </div>

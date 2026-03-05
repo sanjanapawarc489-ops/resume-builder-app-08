@@ -1,22 +1,42 @@
-import { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Badge, type BadgeVariant } from './ui'
+import { Badge } from './ui'
 
-export function TopNav() {
+export function TopNav({ readinessScore = 0 }: { readinessScore?: number }) {
+    const navItems = [
+        { to: '/', label: '🏠 Dashboard', exact: true },
+        { to: '/resume', label: '📄 Resume' },
+        { to: '/jobs', label: '💼 Jobs' },
+        { to: '/analyze', label: '🔍 Analyze' },
+        { to: '/applications', label: '📬 Applications' },
+        { to: '/settings', label: '⚙️ Settings' },
+    ]
+
+    const color = readinessScore >= 71 ? '#27ae60' : readinessScore >= 41 ? '#f39c12' : '#e74c3c'
+
     return (
-        <nav className="ds-topBar">
+        <nav className="ds-topBar" style={{ position: 'sticky', top: 0, zIndex: 100, backdropFilter: 'blur(8px)' }}>
             <div className="ds-container">
-                <div className="ds-topBarInner">
-                    <NavLink to="/" className="ds-projectName" style={{ textDecoration: 'none', color: 'inherit' }}>
-                        AI Resume Builder
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                    <NavLink to="/" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.01em', flexShrink: 0 }}>
+                        🚀 PlacementOS
                     </NavLink>
-                    <div className="ds-topBarNav">
-                        <NavLink to="/builder" className={({ isActive }) => `ds-navLink ${isActive ? 'active' : ''}`}>Builder</NavLink>
-                        <NavLink to="/preview" className={({ isActive }) => `ds-navLink ${isActive ? 'active' : ''}`}>Preview</NavLink>
-                        <NavLink to="/proof" className={({ isActive }) => `ds-navLink ${isActive ? 'active' : ''}`}>Proof</NavLink>
+                    <div style={{ display: 'flex', gap: '2px', overflowX: 'auto' }}>
+                        {navItems.map(item => (
+                            <NavLink key={item.to} to={item.to} end={item.exact}
+                                className={({ isActive }) => `ds-navLink ${isActive ? 'active' : ''}`}
+                                style={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                                {item.label}
+                            </NavLink>
+                        ))}
                     </div>
-                    <div className="ds-topBarRight">
-                        <Badge variant="neutral">Beta 1.0</Badge>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                        {readinessScore > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: color + '18', border: `1px solid ${color}44`, borderRadius: '20px', padding: '4px 12px' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                                <span style={{ fontSize: '12px', fontWeight: 'bold', color }}>{readinessScore}% Ready</span>
+                            </div>
+                        )}
+                        <Badge variant="neutral">Beta 2.0</Badge>
                     </div>
                 </div>
             </div>
